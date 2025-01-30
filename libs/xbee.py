@@ -4,6 +4,7 @@ import signal, threading
 from enum import Enum
 from serial import Serial
 from types import FrameType
+from dataclasses import dataclass
 from typing import Optional, Callable
 
 
@@ -15,51 +16,6 @@ class Address(Enum):
 
 class FunCode(Enum):
     ACK = 1
-
-
-class Message:
-    def __init__(self, raw: bytes) -> None:
-        self.__raw = raw
-
-    @staticmethod
-    def from_response(raw: bytes) -> Optional[Message]:
-        if len(raw) < 5: return None
-        return Message(raw) if Message.__crc8(raw[:-1]) == raw[-1] else None
-
-    @property
-    def dest(self): return self.__raw[0]
-
-    @property
-    def src(self): return self.__raw[1]
-
-    @property
-    def code(self): return self.__raw[2]
-
-    @property
-    def id(self): return self.__raw[3]
-
-    @property
-    def data(self): return self.__raw[4:-1]
-
-    @staticmethod
-    def __crc8(data: bytes, polynomial: int = 0x07, initial: int = 0xff) -> int:
-        crc = initial
-
-        for byte in data:
-            crc ^= byte
-            for _ in range(8):
-                crc = ((crc << 1)^polynomial if (crc & 0x80) else (crc << 1)) & 0xff
-
-        return crc
-
-    @staticmethod
-    def to_bytes(dest: Address, src: Address, code: FunCode, id: int, data: bytes):
-        message = (dest.value.to_bytes(1, "big")
-                    + src.value.to_bytes(1, "big")
-                    + code.value.to_bytes(1, "big")
-                    + id.to_bytes(1, "big") + data)
-
-        return message + Message.__crc8(message).to_bytes(1, "big")
 
 
 class Request:
@@ -75,15 +31,53 @@ class Request:
         return self.__event.wait(timeout)
 
 
+@dataclass
+class Message:
+    dest: Address
+    src: Address
+    code: FunCode
+    id: int
+    length: int
+    data: Optional[bytes]
+
+    @staticmethod
+    def __crc8(data: bytes, polynomial: int = 0x07, crc: int = 0xff) -> int:
+        for byte in data:
+            crc ^= byte
+            for _ in range(8):
+                crc = ((crc << 1)^polynomial if (crc & 0x80) else (crc << 1)) & 0xff
+        return crc
+
+    @staticmethod
+    def to_bytes(dest: Address, src: Address, code: FunCode, id: int, data: bytes):
+        message = (dest.value.to_bytes(1, "big")
+                    + src.value.to_bytes(1, "big")
+                    + code.value.to_bytes(1, "big")
+                    + id.to_bytes(1, "big")
+                    + len(data).to_bytes(1, "big"))
+
+        return message + Message.__crc8(message).to_bytes(1, "big") \
+            + data + Message.__crc8(data).to_bytes(1, "big")
+
+    @staticmethod
+    def check_header(raw: bytes, src: Address) -> Optional[Message]:
+        return None if raw[-1] != Message.__crc8(raw[:-1]) or raw[0] != src.value \
+            else Message(Address(raw[0]), Address(raw[1]), FunCode(raw[2]), raw[3], raw[4], None)
+
+    @staticmethod
+    def check_data(data: bytes) -> Optional[bytes]:
+        return None if data[-1] != Message.__crc8(data[:-1]) else  data[:-1]
+
+
 class XBee:
-    def __init__(self, source: Address, port: str, baudrate: int = 9600) -> None:
+    def __init__(self, src: Address, port: str, baudrate: int = 9600) -> None:
         self.__running = True
         self.__ser = Serial(port, baudrate)
 
         self.__count = 0
-        self.__addr = source
+        self.__addr = src
         self.__requests: dict[int, Request] = {}
-        self.__callbacks: dict[int, Callable[[XBee, Message]]] = {}
+        self.__callbacks: dict[FunCode, Callable[[XBee, Message]]] = {}
 
         signal.signal(signal.SIGINT, self.__stop)
         signal.signal(signal.SIGTERM, self.__stop)
@@ -110,14 +104,17 @@ class XBee:
             raise Exception("Couldn't leave command mode")
 
     def bind(self, code: FunCode, callback: Callable[[XBee, Message]]) -> None:
-        self.__callbacks[code.value] = callback
+        self.__callbacks[code] = callback
 
     def listen(self) -> None:
         self.__ser.timeout = 1
 
         while self.__running:
-            message = Message.from_response(self.__ser.readline())
-            if message is None or message.dest != self.__addr.value: continue
+            message = Message.check_header(self.__ser.read(6), self.__addr)
+            if message is None: continue
+
+            message.data = Message.check_data(self.__ser.read(message.length))
+            if message.data is None: continue
 
             if callback := self.__callbacks.get(message.code, None):
                 threading.Thread(target=callback, args=(self, message)).start()

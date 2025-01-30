@@ -1,6 +1,8 @@
 from threading import Thread
 from libs.xbee import Address, FunCode, Message, XBee
 
+# Maître down => esclaves sans réponse depuis plus d'une seconde (comparer timestamp)
+
 xbee = XBee(Address.ROBOT, "/dev/ttyUSB0")
 xbee.apply_config({
     b"ATAP": b"0",
