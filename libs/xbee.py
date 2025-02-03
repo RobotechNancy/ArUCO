@@ -61,12 +61,12 @@ class Message:
 
     @staticmethod
     def check_header(raw: bytes, src: Address) -> Optional[Message]:
-        return None if raw[-1] != Message.__crc8(raw[:-1]) or raw[0] != src.value \
+        return None if len(raw) == 0 or raw[-1] != Message.__crc8(raw[:-1]) or raw[0] != src.value \
             else Message(Address(raw[0]), Address(raw[1]), FunCode(raw[2]), raw[3], raw[4], None)
 
     @staticmethod
     def check_data(data: bytes) -> Optional[bytes]:
-        return None if data[-1] != Message.__crc8(data[:-1]) else  data[:-1]
+        return None if len(data) == 0 or data[-1] != Message.__crc8(data[:-1]) else  data[:-1]
 
 
 class XBee:
