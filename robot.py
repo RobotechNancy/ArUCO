@@ -16,8 +16,6 @@ xbee.apply_config({
     b"ATDH": b"0"
 })
 
-Thread(target=xbee.listen).start()
-
 print("Sending")
-data = xbee.request(Address.CAMERA_1, FunCode.ACK, b"HELLO?")
-print(data)
+xbee.send(Address.CAMERA_1, FunCode.ACK, b"HELLO?")
+xbee.send(Address.CAMERA_1, FunCode.ACK, b"HELLO?")

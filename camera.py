@@ -3,7 +3,6 @@ from libs.xbee import Address, FunCode, Message, XBee
 
 def ack(xbee: XBee, message: Message) -> None:
     print("ACK:", message.data)
-    xbee.reply(message, b"HELLO!")
 
 
 xbee = XBee(Address.CAMERA_1, "/dev/ttyUSB0")
