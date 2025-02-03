@@ -5,7 +5,7 @@ def ack(xbee: XBee, message: Message) -> None:
     print("ACK:", message.data)
 
 
-xbee = XBee(Address.CAMERA_1, "/dev/ttyS0")
+xbee = XBee(Address.CAMERA_1, "/dev/ttyUSB0")
 xbee.apply_config({
     b"ATAP": b"0",
     b"ATEE": b"1",

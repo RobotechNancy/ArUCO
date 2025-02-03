@@ -62,7 +62,7 @@ class Message:
     @staticmethod
     def check_header(raw: bytes, src: Address) -> Optional[Message]:
         return None if len(raw) == 0 or raw[-1] != Message.__crc8(raw[:-1]) or raw[0] != src.value \
-            else Message(Address(raw[0]), Address(raw[1]), FunCode(raw[2]), raw[3], raw[4], None)
+            else Message(Address(raw[0]), Address(raw[1]), FunCode(raw[2]), raw[3], raw[4]+1, None)
 
     @staticmethod
     def check_data(data: bytes) -> Optional[bytes]:
