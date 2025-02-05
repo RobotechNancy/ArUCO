@@ -4,13 +4,14 @@ from libs.xbee import Address, FunCode, XBee
 
 xbee = XBee(Address.ROBOT, "/dev/ttyUSB0", debug=True)
 xbee.apply_config({
-    b"ATAP": b"\x00",
-    b"ATCH": b"x0f",
-    b"ATID": b"\x9c\xb3",
-    b"ATCE": b"\x01",
-    b"ATDL": b'\xff\xff',
-    b"ATDH": b"\x00",
-    b"ATRN": b"\x01"
+    b"ATAP": b"0",
+    b"ATCH": b"D",
+    b"ATID": b"3c39",
+    b"ATCE": b"1",
+    b"ATMY": b"1",
+    b"ATDL": b"FFFF",
+    b"ATDH": b"0",
+    b"ATRN": b"1"
 })
 
 xbee.send(Address.CAMERA_1, FunCode.ACK, b"HELLO?")
