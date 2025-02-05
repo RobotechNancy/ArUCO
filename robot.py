@@ -5,8 +5,8 @@ from libs.xbee import Address, FunCode, XBee
 xbee = XBee(Address.ROBOT, "/dev/ttyUSB0")
 xbee.apply_config({
     b"ATAP": b"\x00",
-    b"ATCH": b"\xba",
-    b"ATID": b"\xde",
+    b"ATCH": b"\x0d",
+    b"ATID": b"\x9c\xb3",
     b"ATCE": b"\x01",
     b"ATDL": b'\xff\xff',
     b"ATDH": b"\x00",
