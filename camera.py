@@ -7,15 +7,13 @@ def ack(xbee: XBee, message: Message) -> None:
 
 xbee = XBee(Address.CAMERA_1, "/dev/ttyUSB0")
 xbee.apply_config({
-    b"ATAP": b"0",
-    b"ATEE": b"1",
-    b"ATKY": b"32303032",
-    b"ATCH": b"C",
-    b"ATID": b"3332",
-    b"ATCE": b"0",
-    b"ATMY": b"1",
-    b"ATDL": b"FFFF",
-    b"ATDH": b"0"
+    b"ATAP": b"\x00",
+    b"ATCH": b"\xba",
+    b"ATID": b"\xde",
+    b"ATCE": b"\x00",
+    b"ATDL": b'\xff\xff',
+    b"ATDH": b"\x00",
+    b"ATRN": b"\x01"
 })
 
 xbee.bind(FunCode.ACK, ack)
