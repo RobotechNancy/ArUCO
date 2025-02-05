@@ -60,18 +60,22 @@ class Message:
             + data + Message.__crc8(data).to_bytes(1, "big")
 
     @staticmethod
-    def check_header(raw: bytes, src: Address) -> Optional[Message]:
+    def check_header(raw: bytes, src: Address, debug: bool = False) -> Optional[Message]:
+        if debug and len(raw) != 0:
+            print(f"Received data: {raw}")
+
         return None if len(raw) == 0 or raw[-1] != Message.__crc8(raw[:-1]) or raw[0] != src.value \
             else Message(Address(raw[0]), Address(raw[1]), FunCode(raw[2]), raw[3], raw[4]+1, None)
 
     @staticmethod
     def check_data(data: bytes) -> Optional[bytes]:
-        return None if len(data) == 0 or data[-1] != Message.__crc8(data[:-1]) else  data[:-1]
+            return None if len(data) == 0 or data[-1] != Message.__crc8(data[:-1]) else  data[:-1]
 
 
 class XBee:
-    def __init__(self, src: Address, port: str, baudrate: int = 9600) -> None:
+    def __init__(self, src: Address, port: str, baudrate: int = 9600, debug: bool = False) -> None:
         self.__running = True
+        self.__debug = debug
         self.__ser = Serial(port, baudrate)
 
         self.__count = 0
@@ -87,30 +91,49 @@ class XBee:
 
     def __send_command(self, command: bytes) -> bool:
         self.__ser.write(command)
-        return self.__ser.read(3) != b"OK\r"
+
+        rt = self.__ser.read(3)
+        if self.__debug:
+            print(rt)
+
+        return rt != b"OK\r"
 
     def apply_config(self, config: dict[bytes, bytes]) -> None:
         if self.__send_command(b"+++"):
             raise Exception("Couldn't enter command mode")
 
         for command, value in config.items():
+            if self.__debug:
+                print(f"Setting {command} to {value}...")
+
             if self.__send_command(command + b" " + value + b"\r"):
                 raise Exception(f"Couldn't set {command} to {value}")
 
+        if self.__debug:
+            print(f"Applying configuration...")
+
         if self.__send_command(b"ATWR\r"):
             raise Exception("Couldn't write config")
+
+        if self.__debug:
+            print(f"Leaving command mode...")
 
         if self.__send_command(b"ATCN\r"):
             raise Exception("Couldn't leave command mode")
 
     def bind(self, code: FunCode, callback: Callable[[XBee, Message]]) -> None:
+        if self.__debug:
+            print(f"Bound {code} to a callback")
+
         self.__callbacks[code] = callback
 
     def listen(self) -> None:
         self.__ser.timeout = 1
+        if self.__debug:
+            print(f"Started listening...")
 
         while self.__running:
-            message = Message.check_header(self.__ser.read(6), self.__addr)
+            message = Message.check_header(self.__ser.read(6), self.__addr, self.__debug)
             if message is None: continue
 
             message.data = Message.check_data(self.__ser.read(message.length))
@@ -123,6 +146,7 @@ class XBee:
 
     def send(self, address: Address, code: FunCode, data: bytes) -> None:
         self.__ser.write(Message.to_bytes(address, self.__addr, code, self.__count, data))
+        print(f"Sent message n°{self.__count} to {address} with code {code}")
         self.__count = (self.__count+1) % 255
 
     def request(self, address: Address, code: FunCode, data: bytes, timeout: float = 3) -> Optional[bytes]:
